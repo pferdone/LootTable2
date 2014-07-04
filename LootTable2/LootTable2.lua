@@ -373,8 +373,7 @@ function LootTable2:new(o)
 		REVISION = 0,
 		tSessions = {},
 		tItems = {},
-		tVirtualItems = {},
-		tQuests = {}
+		tVirtualItems = {}
 	}
 	self.sSessionKey = nil
 	self.tSessionTable = nil
@@ -658,6 +657,86 @@ function LootTable2:UnitTooltipGen(wndContainer, unitSource, strProp)
 				end
 			end
 		end
+		
+		-- accumulate data
+		local sName = unitSource:GetName()
+		local tProperties = {}
+		for kSession,tSession in pairs(self.tSavedData.tSessions) do
+			for k,tUnits in pairs(tSession) do
+				if k == "tUnits" then
+					for kUnit, tUnit in pairs(tUnits) do
+						if sName == kUnit then
+							self:GetZoneProperties(tUnit.tZones, tProperties)
+						end
+					end
+				end
+			end
+		end
+		
+		-- consolidate item data
+		local tUnitData = { nKillCount = 0, nTotalMoney = 0, tLootTable = {} }
+		for _,tProp in ipairs(tProperties) do
+			-- add killCounts
+			tUnitData.nKillCount = tUnitData.nKillCount + tProp.nKillCount
+			
+			for nItemId,tLoot in pairs(tProp.tLootTable) do
+				if nItemId ~= "Cash" then
+					tUnitData.tLootTable[nItemId] = tUnitData.tLootTable[nItemId] or {
+						nItemId = nItemId,
+						sItemName = self.tSavedData.tItems[nItemId].sItemName,
+						sIcon = self.tSavedData.tItems[nItemId].sIcon,
+						eItemQuality = self.tSavedData.tItems[nItemId].eItemQuality,
+						nDropCount = 0,
+						nTotalDropCount = 0,
+						nMinDropCount = tLoot.nMinDropCount,
+						nMaxDropCount = tLoot.nMaxDropCount
+					}
+					tUnitData.tLootTable[nItemId].nDropCount = tUnitData.tLootTable[nItemId].nDropCount + tLoot.nDropCount
+					tUnitData.tLootTable[nItemId].nTotalDropCount = tUnitData.tLootTable[nItemId].nTotalDropCount + tLoot.nTotalDropCount
+					tUnitData.tLootTable[nItemId].nMinDropCount = math.min(tUnitData.tLootTable[nItemId].nMinDropCount, tLoot.nMinDropCount)
+					tUnitData.tLootTable[nItemId].nMaxDropCount = math.min(tUnitData.tLootTable[nItemId].nMaxDropCount, tLoot.nMaxDropCount)
+				else
+					tUnitData.nTotalMoney = tUnitData.nTotalMoney + tLoot.nTotalMoney
+				end
+			end
+		end
+		
+		-- display loot in tooltip
+		table.sort(tUnitData.tLootTable, function (a,b) return a.nDropCount>b.nDropCount end)
+		
+		local bAddSeperator = true
+		for k,v in pairs(tUnitData.tLootTable) do
+			-- add a seperator
+			if bAddSeperator then
+				Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SeparatorSmallLine", wndMiddleDataBlockContent, self)
+				bAddSeperator = false
+			end
+			-- add loot information to middle data block
+			local wndLoot = Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "UnitTooltip_Reward", wndMiddleDataBlockContent, self)
+			local nDropChance = (v.nDropCount/tUnitData.nKillCount)*100
+			local sText = string.format("<P Font=\"CRB_InterfaceSmall\" TextColor=\"%s\">(%.1f%%) %s</P>", karEvalColors[v.eItemQuality], nDropChance, v.sItemName)
+			
+			wndLoot:FindChild("Icon"):SetSprite(v.sIcon)
+			wndLoot:FindChild("Label"):SetText(sText)
+			wndLoot:FindChild("Label"):SetHeightToContentHeight()
+			if wndLoot:FindChild("Label"):GetHeight() > wndLoot:GetHeight() then
+				local lootWndLeft, lootWndTop, lootWndRight, lootWndBottom = wndLoot:GetAnchorOffsets()
+				wndLoot:SetAnchorOffsets(lootWndLeft, lootWndTop, lootWndRight, wndLoot:FindChild("Label"):GetHeight())
+			end
+		end
+		
+		if tUnitData.nKillCount>0 then
+			Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SeparatorSmallLine", wndMiddleDataBlockContent, self)
+			local wndKillCount = Apollo.LoadForm("TooltipsForms.xml", "UnitTooltip_KillCash", wndMiddleDataBlockContent, self)
+			wndKillCount:FindChild("Label"):SetText(tostring(tUnitData.nKillCount))
+			
+			if tUnitData.nTotalMoney >= 1 then
+				local wndCashWindow = wndKillCount:FindChild("CashWindow")
+				wndCashWindow:Show(true)
+				wndCashWindow:SetAmount(math.floor(tUnitData.nTotalMoney/tUnitData.nKillCount), true)
+			end	
+		end
+		
 
 		-- Friendly Warplot structure
 		if unitSource:IsFriendlyWarplotStructure() then
@@ -882,6 +961,19 @@ function LootTable2:UnitTooltipGen(wndContainer, unitSource, strProp)
 	if bHideFormSecondary then
 		wndContainer:SetTooltipFormSecondary(nil)
 	end
+end
+
+-------------------------------------------------------------------------------
+-- GetZoneProperties
+-------------------------------------------------------------------------------
+function LootTable2:GetZoneProperties(tZone, tProperties)
+    for k,v in pairs(tZone) do
+        if (k=="tProperties") then
+            tProperties[#tProperties+1] = v
+        else
+            return self:GetZoneProperties(v, tProperties)
+        end
+    end
 end
 
 ------------------
@@ -2316,6 +2408,7 @@ function LootTable2:AssignLoot(loot)
 			sItemTypeName = itemLoot:GetItemTypeName(),
 			nRequiredLevel = itemLoot:GetRequiredLevel(),
 			tDetailedInfo = itemLoot:GetDetailedInfo(),
+			sIcon = itemLoot:GetIcon(),
 			tDroppedBy = {}
 		}
 		self.tSavedData.tItems[nItemId] = tItem
@@ -2416,27 +2509,6 @@ function LootTable2:UpdateUnit(unit)
 	local sName = unit:GetName()
 	local tUnit = self.tSessionTable.tUnits[sName]
 	local tRewardInfo = unit:GetRewardInfo()
-	local qeEpisodes = QuestLib.GetAllEpisodes()
-	local idQuest = 9002
-	for i,v in ipairs(qeEpisodes) do
-		for i2,v2 in ipairs(v:GetAllQuests()) do
-			if idQuest == v2:GetId() then
-				self.tSavedData.tQuests[idQuest] = {
-				}
-			end
-		end
-	end
-	--[[for i,v in ipairs(tRewardInfo) do
-		if v.strType == "Challenge" then
-		elseif v.strType == "Quest" then
-			local qQuest = QuestLib.GetEpisode(v.idQuest)
-			Print(v.strTitle .. " " .. type(qQuest))
-			for n,m in pairs(qQuest) do
-				Print(n .. " = " .. tostring(m))
-			end
-			self.tSavedData.tQuests[v.idQuest] = QuestLib.GetQuest(v.idQuest)
-		end
-	end]]--
 
 	-- if no unit exists, create it
 	if not tUnit then
