@@ -326,8 +326,6 @@ local kcrAggressiveEnemyTextColor 		= karDispositionColors[Unit.CodeEnumDisposit
 local kcrNeutralEnemyTextColor 			= ApolloColor.new("crayDenim")
 
 
-local tVitals = {}
-
 local knWndHeightBuffer
 
 function LootTable2:new(o)
@@ -374,6 +372,17 @@ function LootTable2:OnLoad()
 	TT.UnitTooltipGen = function (luaCalller, wndContainer, unitSource, strProp)
 		self.UnitTooltipGen(luaCaller, wndContainer, unitSource, strProp)
 	end
+end
+
+function LootTable2:OnDocumentReady()
+    if self.xmlDoc == nil then
+        return
+    end
+
+	-- LootTable2 Event Handlers
+	Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
+	Apollo.RegisterEventHandler("CombatLogDamage", "OnCombatLogDamage", self)
+	Apollo.RegisterEventHandler("LootedItem", "OnLootedItem", self)
 end
 
 function LootTable2:UnitTooltipGen(wndContainer, unitSource, strProp)
