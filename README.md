@@ -5,6 +5,9 @@ LootTable2 is a very simple addon and works right out of the box. Just copy the 
 
 Changelog
 
+v0.1.2 - 2014-07-05
+* readded missing event handlers
+
 v0.1.1 - 2014-07-05
 * sort items by drop chance
 * removed Tradeskills2 folder, please remove the folder from your addons folder if you still have it
