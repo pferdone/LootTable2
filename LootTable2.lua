@@ -1087,10 +1087,10 @@ function LootTable2:AssignLoot(loot)
 			tUnitVirtualItem.nTotalDropCount = tUnitVirtualItem.nTotalDropCount + tPinataLoot.tVirtualItem.nCount
 		end
 	else
-		Print("Unknown eLootItemType")
+		--[[Print("Unknown eLootItemType")
 		for k,v in pairs(tPinataLoot) do
 			Print(" + " .. tostring(k) .. " = " ..tostring(v))
-		end
+		end]]--
 	end
 end
 
@@ -1123,12 +1123,14 @@ function LootTable2:UpdateUnit(unit)
 	local tProperties = tZone.tProperties
 	if tProperties then
 		-- update
-		tProperties.nMinLevel = math.min(tProperties.nMinLevel, unit:GetLevel())
-		tProperties.nMaxLevel = math.max(tProperties.nMaxLevel, unit:GetLevel())
-		tProperties.nMinHealth = math.min(tProperties.nMinHealth, unit:GetMaxHealth())
-		tProperties.nMaxHealth = math.max(tProperties.nMaxHealth, unit:GetMaxHealth())
-		tProperties.nMinShield = math.min(tProperties.nMinShield, unit:GetShieldCapacityMax())
-		tProperties.nMaxShield = math.max(tProperties.nMaxShield, unit:GetShieldCapacityMax())
+		if (tProperties.sType=="NonPlayer") then
+			tProperties.nMinLevel = math.min(tProperties.nMinLevel, unit:GetLevel())
+			tProperties.nMaxLevel = math.max(tProperties.nMaxLevel, unit:GetLevel())
+			tProperties.nMinHealth = math.min(tProperties.nMinHealth, unit:GetMaxHealth())
+			tProperties.nMaxHealth = math.max(tProperties.nMaxHealth, unit:GetMaxHealth())
+			tProperties.nMinShield = math.min(tProperties.nMinShield, unit:GetShieldCapacityMax())
+			tProperties.nMaxShield = math.max(tProperties.nMaxShield, unit:GetShieldCapacityMax())
+		end
 		tProperties.nKillCount = tProperties.nKillCount + 1 -- update kill count
 		tProperties.tRewardInfo = tProperties.tRewardInfo or unit:GetRewardInfo()
 		

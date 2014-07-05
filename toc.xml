@@ -1,4 +1,4 @@
-<Addon Name="LootTable2" Version="0.1.2" Author="PferdOne" APIVersion="8" Description="Display loot table in tooltips">
+<Addon Name="LootTable2" Version="0.1.3" Author="PferdOne" APIVersion="8" Description="Display loot table in tooltips">
     <Script Name="LootTable2.lua"/>
     <Form Name="TooltipsForms.xml"/>
     <!--<ReplaceAddon Name="ToolTips"/>-->
