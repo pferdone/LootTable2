@@ -655,10 +655,16 @@ function LootTable2:UnitTooltipGen(wndContainer, unitSource, strProp)
 		end
 		
 		-- display loot in tooltip
+		local tSortableLootTable = {}
+		for k,v in pairs(tUnitData.tLootTable) do
+			table.insert(tSortableLootTable, v)
+		end
+
+		tUnitData.tLootTable = tSortableLootTable
 		table.sort(tUnitData.tLootTable, function (a,b) return a.nDropCount>b.nDropCount end)
 		
 		local bAddSeperator = true
-		for k,v in pairs(tUnitData.tLootTable) do
+		for i,v in ipairs(tUnitData.tLootTable) do
 			-- add a seperator
 			if bAddSeperator then
 				Apollo.LoadForm("ui\\Tooltips\\TooltipsForms.xml", "SeparatorSmallLine", wndMiddleDataBlockContent, this)
