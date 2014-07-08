@@ -1,7 +1,7 @@
 LootTable2
 ==========
 
-LootTable2 is a very simple addon and works right out of the box. Just copy the LootTable2 & Tradeskills2 folder to your addon directory and you can record item drops immediately. LootTable2 does the following for you:
+LootTable2 is a very simple addon and works right out of the box. Just copy the LootTable2 folder to your addon directory and you can record item drops immediately.
 
 Changelog
 
