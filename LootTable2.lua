@@ -978,6 +978,7 @@ function LootTable2:AssignLoot(loot)
 		local tZone = self.currentLootTarget.tZones
 		for _,v in ipairs(sZoneNames) do
 			if v ~= nil and v ~= "" then
+				tZone[v] = tZone[v] or {}
 				tZone = tZone[v]
 			end
 		end
