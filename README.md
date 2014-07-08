@@ -5,6 +5,9 @@ LootTable2 is a very simple addon and works right out of the box. Just copy the 
 
 Changelog
 
+v0.1.4 - 2014-07-08
+* fixed indexing of a nil value
+
 v0.1.3 - 2014-07-05
 * fixed a bug related to non-NonPlayer units
 
