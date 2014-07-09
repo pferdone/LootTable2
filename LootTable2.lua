@@ -1124,14 +1124,21 @@ function LootTable2:UpdateUnit(unit)
 	local tProperties = tZone.tProperties
 	if tProperties then
 		-- update
-		if (tProperties.sType=="NonPlayer") then
-			tProperties.nMinLevel = math.min(tProperties.nMinLevel, unit:GetLevel())
-			tProperties.nMaxLevel = math.max(tProperties.nMaxLevel, unit:GetLevel())
-			tProperties.nMinHealth = math.min(tProperties.nMinHealth, unit:GetMaxHealth())
-			tProperties.nMaxHealth = math.max(tProperties.nMaxHealth, unit:GetMaxHealth())
-			tProperties.nMinShield = math.min(tProperties.nMinShield, unit:GetShieldCapacityMax())
-			tProperties.nMaxShield = math.max(tProperties.nMaxShield, unit:GetShieldCapacityMax())
+		local result, err = pcall(function()
+			if (tProperties.sType=="NonPlayer") then
+				tProperties.nMinLevel = math.min(tProperties.nMinLevel, unit:GetLevel())
+				tProperties.nMaxLevel = math.max(tProperties.nMaxLevel, unit:GetLevel())
+				tProperties.nMinHealth = math.min(tProperties.nMinHealth, unit:GetMaxHealth())
+				tProperties.nMaxHealth = math.max(tProperties.nMaxHealth, unit:GetMaxHealth())
+				tProperties.nMinShield = math.min(tProperties.nMinShield, unit:GetShieldCapacityMax())
+				tProperties.nMaxShield = math.max(tProperties.nMaxShield, unit:GetShieldCapacityMax())
+			end
+		end)
+
+		if (err) then
+			Print("An error occurred: "..err)
 		end
+
 		tProperties.nKillCount = tProperties.nKillCount + 1 -- update kill count
 		tProperties.tRewardInfo = tProperties.tRewardInfo or unit:GetRewardInfo()
 		
