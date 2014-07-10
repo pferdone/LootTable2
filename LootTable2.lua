@@ -1135,9 +1135,9 @@ function LootTable2:UpdateUnit(unit)
 			end
 		end)
 
-		if (err) then
+		--[[if (err) then
 			Print("Error caught: "..err)
-		end
+		end]]--
 
 		tProperties.nKillCount = tProperties.nKillCount + 1 -- update kill count
 		tProperties.tRewardInfo = tProperties.tRewardInfo or unit:GetRewardInfo()
