@@ -5,6 +5,9 @@ LootTable2 is a very simple addon and works right out of the box. Just copy the 
 
 Changelog
 
+v0.1.5 - 2014-07-10
+* wrapped properties update in pcall to discard expection
+
 v0.1.4 - 2014-07-08
 * fixed indexing of a nil value
 
