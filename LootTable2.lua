@@ -342,7 +342,7 @@ function LootTable2:new(o)
 		tSessions = {},
 		tItems = {},
 		tVirtualItems = {},
-		tSalvagable = {}
+		tSalvageables = {}
 	}
 	self.sSessionKey = nil
 	self.tSessionTable = nil
@@ -993,11 +993,13 @@ function LootTable2:AssignUnitLoot(loot)
 	-- Static Item
 	if tPinataLoot.eLootItemType == 0 then
 		local itemLoot = tPinataLoot.itemLoot
-		local nItemId = itemLoot:GetItemId()
+		-- local nItemId = itemLoot:GetItemId() -- removed due to new function GetItemFromTable
+
+		local tItem, nItemId = self:GetItemFromTable(itemLoot)
 		
 		-- add item to tItems table
-		local tItem = self.tSavedData.tItems[nItemId] or {
-			sItemName = loot:GetName(),
+		--[[local tItem = self.tSavedData.tItems[nItemId] or {
+			sItemName = itemLoot:GetName(),
 			nItemId = nItemId,
 			sItemCategoryName = itemLoot:GetItemCategoryName(),
 			sItemFamilyName = itemLoot:GetItemFamilyName(),
@@ -1007,9 +1009,10 @@ function LootTable2:AssignUnitLoot(loot)
 			nRequiredLevel = itemLoot:GetRequiredLevel(),
 			tDetailedInfo = itemLoot:GetDetailedInfo(),
 			sIcon = itemLoot:GetIcon(),
-			tDroppedBy = {}
+			tDroppedBy = {},
+			tSalvagedFrom = {}
 		}
-		self.tSavedData.tItems[nItemId] = tItem
+		self.tSavedData.tItems[nItemId] = tItem]]-- removed due to new function GetItemFromTable
 		
 		-- add item to unit if there is one
 		if tUnitLootTable then
@@ -1097,6 +1100,29 @@ function LootTable2:AssignUnitLoot(loot)
 			Print(" + " .. tostring(k) .. " = " ..tostring(v))
 		end]]--
 	end
+end
+
+-- retrieve an item entry from table or create one
+function LootTable2:GetItemFromTable(item)
+	local nItemId = item:GetItemId()
+	-- add item to tItems table
+	local tItem = self.tSavedData.tItems[nItemId] or {
+		sItemName = item:GetName(),
+		nItemId = nItemId,
+		sItemCategoryName = item:GetItemCategoryName(),
+		sItemFamilyName = item:GetItemFamilyName(),
+		sItemFlavor = item:GetItemFlavor(),
+		eItemQuality = item:GetItemQuality(),
+		sItemTypeName = item:GetItemTypeName(),
+		nRequiredLevel = item:GetRequiredLevel(),
+		tDetailedInfo = item:GetDetailedInfo(),
+		sIcon = item:GetIcon(),
+		tDroppedBy = {},
+		tSalvagedFrom = {}
+	}
+	self.tSavedData.tItems[nItemId] = tItem
+
+	return tItem, nItemId
 end
 
 
@@ -1272,6 +1298,13 @@ end
 
 -- Notice looted items too
 function LootTable2:OnLootedItem(item, nCount)
+	local nItemId = item:GetItemId()
+	local sItemName = item:GetName()
+	Print("OnLootedItem, "..sItemName..", "..tostring(nItemId));
+
+	-- also inserts item into the table ;)
+	local tLootedItem = self:GetItemFromTable(item)
+
 	if self.currentSalvageableTarget then
 		local nTimeDiff = nil
 		if self.nSalvageableGameTime ~= nil then
@@ -1281,28 +1314,36 @@ function LootTable2:OnLootedItem(item, nCount)
 		-- if time differance is LE 1s and we have a salvageable target
 		if nTimeDiff ~= nil and nTimeDiff <= 1 then
 			local nItemId = self.currentSalvageableTarget:GetItemId()
+			local sItemName = self.currentSalvageableTarget:GetName()
+
+			-- don't forget to reference the item it was salvaged from
+			tLootedItem.tSalvagedFrom = tLootedItem.tSalvagedFrom or {} -- not every entry has tSalvagedFrom
+			tLootedItem.tSalvagedFrom[nItemId] = sItemName
 
 			-- get salvageable table entry or create one
-			self.tSavedData.tSalvagables[nItemId] = self.tSavedData.tSalvagables[nItemId] or {
+			self.tSavedData.tSalvageables[nItemId] = self.tSavedData.tSalvageables[nItemId] or {
 				nItemId = nItemId,
+				sItemName = sItemName,
 				nSalavageCount = 0,
 				tLootTable = {}
 			}
-			local tSalvagable = self.tSavedData.tSalvagables[nItemId]
+			local tSalvageable = self.tSavedData.tSalvageables[nItemId]
 
 			-- update item
-			tSalvagable.nSalavageCount = tSalvagable.nSalavageCount + 1
+			tSalvageable.nSalavageCount = tSalvageable.nSalavageCount + 1
 
 			-- get loot table entry or create one
 			local nSalavagedItemId = item:GetItemId()
-			tSalvagable.tLootTable[nSalavagedItemId] = tSalvagable.tLootTable[nSalavagedItemId] or {
+			local nSalavagedItemName = item:GetName()
+			tSalvageable.tLootTable[nSalavagedItemId] = tSalvageable.tLootTable[nSalavagedItemId] or {
 				nItemId = nSalavagedItemId,
+				sItemName = nSalavagedItemName,
 				nMinDropCount = nCount,
 				nMaxDropCount = nCount,
 				nTotalDropCount = 0,
 				nDropCount = 0
 			}
-			local tSalvagedItem = tSalvagable.tLootTable[nSalavagedItemId]
+			local tSalvagedItem = tSalvageable.tLootTable[nSalavagedItemId]
 
 			-- increment drop by 1, regardless of how many were dropped
 			tSalvagedItem.nDropCount = tSalvagedItem.nDropCount + 1
@@ -1319,6 +1360,8 @@ function LootTable2:OnItemRemoved(item)
 
 	if item:CanSalvage() or item:CanAutoSalvage() then
 		local nItemId = item:GetItemId()
+		local sItemName = item:GetName()
+		Print("OnItemRemoved, "..sItemName..", "..tostring(nItemId));
 		self.nSalvageableGameTime = GameLib.GetGameTime()
 		self.currentSalvageableTarget = item
 	end
