@@ -334,12 +334,15 @@ function LootTable2:new(o)
 	self.__index = self
 	
 	self.currentLootTarget = nil -- current loot target
-	self.nGameTime = nil -- time stamp in seconds
+	self.currentSalvageableTarget = nil -- current salvageable target
+	self.nUnitGameTime = nil -- time stamp since last kill in seconds
+	self.nSalvageableGameTime = nil -- time since last 'ItemRemoved' in seconds
 	self.tSavedData = { -- saved data table
 		REVISION = 0,
 		tSessions = {},
 		tItems = {},
 		tVirtualItems = {}
+		tSalvagable = {}
 	}
 	self.sSessionKey = nil
 	self.tSessionTable = nil
@@ -383,6 +386,7 @@ function LootTable2:OnDocumentReady()
 	Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
 	Apollo.RegisterEventHandler("CombatLogDamage", "OnCombatLogDamage", self)
 	Apollo.RegisterEventHandler("LootedItem", "OnLootedItem", self)
+	Apollo.RegisterEventHandler("ItemRemoved", "OnItemRemoved", self)
 end
 
 function LootTable2:UnitTooltipGen(wndContainer, unitSource, strProp)
@@ -960,13 +964,13 @@ function LootTable2:CreateSession()
 end
 
 -- Assign dropped loot to correct unit
-function LootTable2:AssignLoot(loot)
+function LootTable2:AssignUnitLoot(loot)
 	local tPinataLoot = loot:GetLoot()
 	
 	-- get time difference
 	local nTimeDiff = nil
-	if self.nGameTime ~= nil then
-		nTimeDiff = GameLib.GetGameTime()-self.nGameTime
+	if self.nUnitGameTime ~= nil then
+		nTimeDiff = GameLib.GetGameTime()-self.nUnitGameTime
 	end
 	
 	local tUnitLootTable = nil
@@ -1093,6 +1097,11 @@ function LootTable2:AssignLoot(loot)
 			Print(" + " .. tostring(k) .. " = " ..tostring(v))
 		end]]--
 	end
+end
+
+
+function LootTable2:AssignItemLoot(item)
+
 end
 
 -- Update/create & return unit in session table
@@ -1243,7 +1252,7 @@ function LootTable2:OnUnitCreated(unit)
 		local sType = unit:GetType()
 		-- switch
 		if sType == "PinataLoot" then
-			self:AssignLoot(unit)
+			self:AssignUnitLoot(unit)
 		end
 	end
 end
@@ -1253,17 +1262,66 @@ function LootTable2:OnCombatLogDamage(tEventArgs)
 	-- something has been killed
 	if tEventArgs.bTargetKilled then
 		local unit = tEventArgs.unitTarget
-		if not unit:IsACharacter() then
+		if unit and not unit:IsACharacter() then
 			-- set loot target and time stamp
 			self.currentLootTarget = self:UpdateUnit(unit)
-			self.nGameTime=GameLib.GetGameTime()
+			self.nUnitGameTime=GameLib.GetGameTime()
 		end
 	end
 end
 
 -- Notice looted items too
 function LootTable2:OnLootedItem(item, nCount)
-	--Print("OnLootedItem: " .. tostring(item))
+	if self.currentSalvageableTarget then
+		local nTimeDiff = nil
+		if self.nSalvageableGameTime ~= nil then
+			nTimeDiff = GameLib.GetGameTime()-self.nSalvageableGameTime
+		end
+
+		-- if time differance is LE 1s and we have a salvageable target
+		if nTimeDiff ~= nil and nTimeDiff <= 1 then
+			local nItemId = self.currentSalvageableTarget:GetItemId()
+
+			-- get salvageable table entry or create one
+			self.tSavedData.tSalvagables[nItemId] = self.tSavedData.tSalvagables[nItemId] or {
+				nItemId = nItemId,
+				nSalavageCount = 0,
+				tLootTable = {}
+			}
+			local tSalvagable = self.tSavedData.tSalvagables[nItemId]
+
+			-- update item
+			tSalvagable.nSalavageCount = tSalvagable.nSalavageCount + 1
+
+			-- get loot table entry or create one
+			local nSalavagedItemId = item:GetItemId()
+			tSalvagable.tLootTable[nSalavagedItemId] = tSalvagable.tLootTable[nSalavagedItemId] or {
+				nItemId = nSalavagedItemId,
+				nMinDropCount = nCount,
+				nMaxDropCount = nCount,
+				nTotalDropCount = 0,
+				nDropCount = 0
+			}
+			local tSalvagedItem = tSalvagable.tLootTable[nSalavagedItemId]
+
+			-- increment drop by 1, regardless of how many were dropped
+			tSalvagedItem.nDropCount = tSalvagedItem.nDropCount + 1
+			-- get drop min, max, total drop count
+			tSalvagedItem.nMinDropCount = math.min(tSalvagedItem.nMinDropCount, nCount)
+			tSalvagedItem.nMaxDropCount = math.max(tSalvagedItem.nMaxDropCount, nCount)
+			tSalvagedItem.nTotalDropCount = tSalvagedItem.nTotalDropCount + nCount
+		end
+	end
+end
+
+function LootTable2:OnItemRemoved(item)
+	if item == nil then return end
+
+	if item:CanSalvage() or item:CanAutoSalvage() then
+		local nItemId = item:GetItemId()
+		self.nSalvageableGameTime = GameLib.GetGameTime()
+		self.currentSalvageableTarget = item
+	end
 end
 
 -- save session data
@@ -1275,9 +1333,17 @@ end
 
 -- restore session data
 function LootTable2:OnRestore(eType, tSavedData)
-	--if eType ~= GameLib.CodeEnumAddonSaveLevel.General then return end
-	self.tSavedData = tSavedData or self.tSavedData
-	
+	-- restore data
+	if self.tSavedData then
+		self.tSavedData.REVISION = tSavedData.REVISION or self.tSavedData.REVISION
+		self.tSavedData.tSessions = tSavedData.tSessions or self.tSavedData.tSessions
+		self.tSavedData.tItems = tSavedData.tItems or self.tSavedData.tItems
+		self.tSavedData.tVirtualItems = tSavedData.tVirtualItems or self.tSavedData.tVirtualItems
+		self.tSavedData.tSalvagables = tSavedData.tSalvagables or self.tSavedData.tSalvagables
+	else
+		self.tSavedData = tSavedData or self.tSavedData
+	end
+
 	-- create new session
 	if self.sSessionKey then
 		self.tSavedData.tSessions[self.sSessionKey] = self.tSessionTable
