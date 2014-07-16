@@ -341,7 +341,7 @@ function LootTable2:new(o)
 		REVISION = 0,
 		tSessions = {},
 		tItems = {},
-		tVirtualItems = {}
+		tVirtualItems = {},
 		tSalvagable = {}
 	}
 	self.sSessionKey = nil
